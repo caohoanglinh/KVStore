@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package kvstore;
+
+service KVStore {
+    rpc SetData(GrpcDataRequest) returns (GrpcStatusResponse);
+    rpc GetData(GrpcKeyRequest) returns (GrpcDataResponse);
+    rpc DeleteData(GrpcKeyRequest) returns (GrpcStatusResponse);
+
+    rpc HealthCheck(GrpcHealthCheckRequest) returns (GrpcHealthCheckResponse);
+}
+
+message GrpcData {
+    string value = 1;
+    int32 version = 2;
+}
+
+message GrpcDataRequest {
+    string key = 1;
+    GrpcData data = 2;
+}
+
+message GrpcKeyRequest {
+    string key = 1;
+}
+
+message GrpcHealthCheckRequest {
+}
+
+message GrpcDataResponse {
+    bool success = 1;
+    string message = 2;
+    GrpcData data = 3;
+}
+
+message GrpcStatusResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message GrpcHealthCheckResponse {
+    bool status = 1;
+}

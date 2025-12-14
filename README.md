@@ -6,7 +6,7 @@ This project implements a fault-tolerant key-value store using FastAPI Python an
 
 - Basic key-value operations (GET, SET, DELETE)
 
-= Fault-tolerant communication between client and server via gRPC
+- Fault-tolerant communication between client and server via gRPC
 
 The goal is to simulate a small-scale distributed system with reliable data handling.
 

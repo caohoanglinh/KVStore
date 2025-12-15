@@ -1,6 +1,10 @@
 from concurrent import futures
 import grpc
 from protos import kvstore_pb2, kvstore_pb2_grpc
+import os
+DATA_PATH = "data/backup.txt"
+os.makedirs("data", exist_ok=True)
+
 
 store = {}
 prime_channel = grpc.insecure_channel('localhost:50051')
@@ -13,6 +17,9 @@ class BackupService(kvstore_pb2_grpc.KVStoreServicer):
             "value": request.data.value,
             "version": request.data.version
         }
+        with open(DATA_PATH, "a", encoding="utf-8") as f:
+                f.write(f"SET {request.key} {request.data.value} {request.data.version}\n")
+        
         return kvstore_pb2.GrpcStatusResponse(
             success=True,
             message="Stored successfully"
@@ -21,6 +28,10 @@ class BackupService(kvstore_pb2_grpc.KVStoreServicer):
     def GetData(self, request, context):
         if request.key in store:
             data = store[request.key]
+
+            with open(DATA_PATH, "a", encoding="utf-8") as f:
+                f.write(f"GET {request.key} {data['value']} {data['version']}\n")
+            
             return kvstore_pb2.GrpcDataResponse(
                 success=True,
                 message="Found",
@@ -38,6 +49,10 @@ class BackupService(kvstore_pb2_grpc.KVStoreServicer):
     def DeleteData(self, request, context):
         if request.key in store:
             del store[request.key]
+            
+            with open(DATA_PATH, "a", encoding="utf-8") as f:
+                f.write(f"DELETE {request.key}\n")
+
             return kvstore_pb2.GrpcStatusResponse(success=True, message="Deleted")
         return kvstore_pb2.GrpcStatusResponse(success=False, message="Key not found")
 

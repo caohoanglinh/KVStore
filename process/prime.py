@@ -1,6 +1,10 @@
 from concurrent import futures
 import grpc
 from protos import kvstore_pb2, kvstore_pb2_grpc
+import os
+DATA_PATH = "data/prime.txt"
+os.makedirs("data", exist_ok=True)
+
 
 store = {}
 backup_channel = grpc.insecure_channel('localhost:50052')
@@ -18,19 +22,40 @@ class PrimeService(kvstore_pb2_grpc.KVStoreServicer):
                 "value": request.data.value,
                 "version": request.data.version
             }
+            with open(DATA_PATH, "a", encoding="utf-8") as f:
+                f.write(f"SET {request.key} {request.data.value} {request.data.version}\n")
+        
             return kvstore_pb2.GrpcStatusResponse(
                 success=True,
                 message="Stored successfully"
             )
-        else:
-            return kvstore_pb2.GrpcStatusResponse(
-                success=False,
-                message="Backup store failed to store data"
-            )
+        
+        return kvstore_pb2.GrpcStatusResponse(
+            success=False,
+            message="Failed to store in backup"
+        )
     
     def GetData(self, request, context):
-        if request.key in store:
-            data = store[request.key]
+
+    # forward GET to backup so it can log
+        backup_response = stub.GetData(
+            kvstore_pb2.GrpcDataRequest(key=request.key)
+        )
+
+        if backup_response.success:
+            data = {
+                "value": backup_response.data.value,
+                "version": backup_response.data.version
+            }
+
+        # keep prime in sync (optional but safe)
+            store[request.key] = data
+
+            with open(DATA_PATH, "a", encoding="utf-8") as f:
+                f.write(
+                    f"GET {request.key} {data['value']} {data['version']}\n"
+                )
+
             return kvstore_pb2.GrpcDataResponse(
                 success=True,
                 message="Found",
@@ -39,15 +64,22 @@ class PrimeService(kvstore_pb2_grpc.KVStoreServicer):
                     version=data["version"]
                 )
             )
-        else:
-            return kvstore_pb2.GrpcDataResponse(
-                success=False,
-                message="Key not found"
-            )
+
+        return kvstore_pb2.GrpcDataResponse(
+            success=False,
+            message="Key not found"
+        )
+
         
     def DeleteData(self, request, context):
-        if request.key in store:
-            del store[request.key]
+        response = stub.DeleteData(kvstore_pb2.GrpcDeleteRequest(key=request.key))
+
+        if request.key and response.success in store:
+            with open(DATA_PATH, "a", encoding="utf-8") as f:
+                with open(DATA_PATH, "a", encoding="utf-8") as f:
+                    f.write(f"DELETE {request.key}\n")
+
+            del store[request.key]             
             return kvstore_pb2.GrpcStatusResponse(success=True, message="Deleted")
         return kvstore_pb2.GrpcStatusResponse(success=False, message="Key not found")
 

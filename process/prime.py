@@ -24,31 +24,25 @@ class PrimeService(kvstore_pb2_grpc.KVStoreServicer):
             }
             with open(DATA_PATH, "a", encoding="utf-8") as f:
                 f.write(f"SET {request.key} {request.data.value} {request.data.version}\n")
-        
+       
             return kvstore_pb2.GrpcStatusResponse(
                 success=True,
                 message="Stored successfully"
-            )
-        
-        return kvstore_pb2.GrpcStatusResponse(
-            success=False,
-            message="Failed to store in backup"
+            )       
+        else:
+            return kvstore_pb2.GrpcStatusResponse(
+                success=False,
+                message="Backup store failed to store data"
         )
-    
+   
     def GetData(self, request, context):
-
-    # forward GET to backup so it can log
-        backup_response = stub.GetData(
-            kvstore_pb2.GrpcDataRequest(key=request.key)
-        )
-
+        backup_response = stub.GetData(kvstore_pb2.GrpcDataRequest(key=request.key))
         if backup_response.success:
             data = {
                 "value": backup_response.data.value,
                 "version": backup_response.data.version
             }
 
-        # keep prime in sync (optional but safe)
             store[request.key] = data
 
             with open(DATA_PATH, "a", encoding="utf-8") as f:
@@ -64,22 +58,17 @@ class PrimeService(kvstore_pb2_grpc.KVStoreServicer):
                     version=data["version"]
                 )
             )
-
+        
         return kvstore_pb2.GrpcDataResponse(
             success=False,
             message="Key not found"
         )
 
-        
     def DeleteData(self, request, context):
-        response = stub.DeleteData(kvstore_pb2.GrpcDeleteRequest(key=request.key))
-
-        if request.key and response.success in store:
+        if request.key in store:
             with open(DATA_PATH, "a", encoding="utf-8") as f:
-                with open(DATA_PATH, "a", encoding="utf-8") as f:
                     f.write(f"DELETE {request.key}\n")
-
-            del store[request.key]             
+            del store[request.key]            
             return kvstore_pb2.GrpcStatusResponse(success=True, message="Deleted")
         return kvstore_pb2.GrpcStatusResponse(success=False, message="Key not found")
 
